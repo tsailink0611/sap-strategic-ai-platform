@@ -1,7 +1,7 @@
 # lambda_function.py
 # Stable, no external deps. Reads salesData (array) or csv (string). Bedrock converse. CORS/OPTIONS ready.
 
-import json, os, base64, logging, boto3, requests
+import json, os, base64, logging, boto3, urllib.request, urllib.parse
 from collections import Counter, defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,13 +19,11 @@ logger.setLevel(logging.INFO)
 
 # ====== CORS/Response ======
 def response_json(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    # Lambda Function URLのCORS設定を使用するため、Lambdaではヘッダー設定しない
     return {
         "statusCode": status,
         "headers": {
-            "Content-Type": "application/json; charset=utf-8",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
-            "Access-Control-Allow-Methods": "OPTIONS,POST"
+            "Content-Type": "application/json; charset=utf-8"
         },
         "body": json.dumps(body, ensure_ascii=False)
     }
@@ -838,19 +836,22 @@ def send_line_notification(message: str) -> bool:
         }
         data = {'message': message}
         
-        response = requests.post(
+        # urllib使用でrequests依存を除去
+        data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+        req = urllib.request.Request(
             'https://notify-api.line.me/api/notify',
-            headers=headers,
-            data=data,
-            timeout=10
+            data=data_encoded,
+            headers=headers
         )
-        
-        if response.status_code == 200:
-            logger.info("✅ LINE通知送信成功")
-            return True
-        else:
-            logger.error(f"❌ LINE通知送信失敗: {response.status_code} - {response.text}")
-            return False
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                logger.info("✅ LINE通知送信成功")
+                return True
+            else:
+                response_text = response.read().decode('utf-8')
+                logger.error(f"❌ LINE通知送信失敗: {response.status} - {response_text}")
+                return False
             
     except Exception as e:
         logger.error(f"❌ LINE通知エラー: {str(e)}")
