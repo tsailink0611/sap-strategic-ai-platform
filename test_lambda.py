@@ -18,26 +18,51 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.path.append('./lambda/sap-claude-handler')
 from lambda_function import lambda_handler
 
-# テスト用の売上データ
-test_sales_data = [
-    {"日付": "2024-01-01", "商品名": "商品A", "売上金額": 50000, "数量": 10},
-    {"日付": "2024-01-02", "商品名": "商品B", "売上金額": 30000, "数量": 5},
-    {"日付": "2024-01-03", "商品名": "商品A", "売上金額": 75000, "数量": 15},
-    {"日付": "2024-01-04", "商品名": "商品C", "売上金額": 20000, "数量": 2},
-    {"日付": "2024-01-05", "商品名": "商品B", "売上金額": 45000, "数量": 9},
-    {"日付": "2024-01-06", "商品名": "商品A", "売上金額": 60000, "数量": 12},
-    {"日付": "2024-01-07", "商品名": "商品D", "売上金額": 80000, "数量": 8},
-]
+# 分析タイプ別テストデータ
+test_data_sets = {
+    "sales": [
+        {"日付": "2024-01-01", "商品名": "商品A", "売上金額": 50000, "数量": 10},
+        {"日付": "2024-01-02", "商品名": "商品B", "売上金額": 30000, "数量": 5},
+        {"日付": "2024-01-03", "商品名": "商品A", "売上金額": 75000, "数量": 15},
+        {"日付": "2024-01-04", "商品名": "商品C", "売上金額": 20000, "数量": 2},
+        {"日付": "2024-01-05", "商品名": "商品B", "売上金額": 45000, "数量": 9},
+        {"日付": "2024-01-06", "商品名": "商品A", "売上金額": 60000, "数量": 12},
+        {"日付": "2024-01-07", "商品名": "商品D", "売上金額": 80000, "数量": 8},
+    ],
+    "hr": [
+        {"社員ID": "E001", "氏名": "田中太郎", "部署": "営業部", "給与": 450000, "残業時間": 25},
+        {"社員ID": "E002", "氏名": "佐藤花子", "部署": "IT部", "給与": 520000, "残業時間": 15},
+        {"社員ID": "E003", "氏名": "山田次郎", "部署": "営業部", "給与": 380000, "残業時間": 35},
+        {"社員ID": "E004", "氏名": "鈴木美穂", "部署": "人事部", "給与": 420000, "残業時間": 10},
+        {"社員ID": "E005", "氏名": "高橋一郎", "部署": "IT部", "給与": 580000, "残業時間": 20},
+    ],
+    "inventory": [
+        {"商品コード": "P001", "商品名": "商品A", "在庫数": 150, "単価": 2500, "在庫金額": 375000},
+        {"商品コード": "P002", "商品名": "商品B", "在庫数": 80, "単価": 1800, "在庫金額": 144000},
+        {"商品コード": "P003", "商品名": "商品C", "在庫数": 200, "単価": 900, "在庫金額": 180000},
+        {"商品コード": "P004", "商品名": "商品D", "在庫数": 50, "単価": 5000, "在庫金額": 250000},
+        {"商品コード": "P005", "商品名": "商品E", "在庫数": 300, "単価": 600, "在庫金額": 180000},
+    ],
+    "marketing": [
+        {"キャンペーン": "Google広告", "予算": 500000, "クリック数": 2500, "CV数": 125, "ROI": 2.5},
+        {"キャンペーン": "Facebook広告", "予算": 300000, "クリック数": 1800, "CV数": 90, "ROI": 3.0},
+        {"キャンペーン": "YouTube広告", "予算": 400000, "クリック数": 1200, "CV数": 60, "ROI": 1.8},
+        {"キャンペーン": "LINE広告", "予算": 200000, "クリック数": 800, "CV数": 50, "ROI": 3.5},
+    ]
+}
 
-def test_lambda_function():
-    """Lambdaファンクションをローカルでテスト"""
+def test_lambda_function(analysis_type="sales"):
+    """Lambda関数をローカルでテスト（複数分析タイプ対応）"""
+
+    # テストデータを選択
+    test_data = test_data_sets.get(analysis_type, test_data_sets["sales"])
 
     # テスト用のイベントデータ作成
     test_event = {
         "httpMethod": "POST",
         "body": json.dumps({
-            "salesData": test_sales_data,
-            "analysisType": "sales",
+            "salesData": test_data,
+            "analysisType": analysis_type,
             "responseFormat": "json"
         }),
         "requestContext": {
@@ -47,8 +72,15 @@ def test_lambda_function():
         }
     }
 
-    print("Lambda関数テスト開始...")
-    print(f"テストデータ: {len(test_sales_data)}件の売上データ")
+    analysis_names = {
+        "sales": "売上データ",
+        "hr": "人事データ",
+        "inventory": "在庫データ",
+        "marketing": "マーケティングデータ"
+    }
+
+    print(f"Lambda関数テスト開始... ({analysis_names.get(analysis_type, '不明')})")
+    print(f"テストデータ: {len(test_data)}件の{analysis_names.get(analysis_type, '不明')}")
     print("=" * 60)
 
     try:
@@ -123,6 +155,17 @@ if __name__ == "__main__":
     os.environ.setdefault('MAX_TOKENS', '8000')
     os.environ.setdefault('TEMPERATURE', '0.15')
 
-    print("実践的ビジネス改善AI Lambda関数 - ローカルテスト")
-    print("=" * 60)
-    test_lambda_function()
+    print("実践的ビジネス改善AI Lambda関数 - 汎用分析システムテスト")
+    print("=" * 70)
+
+    # 複数分析タイプをテスト
+    test_types = ["sales", "hr", "inventory", "marketing"]
+
+    for i, analysis_type in enumerate(test_types, 1):
+        print(f"\n【テスト {i}/4】")
+        test_lambda_function(analysis_type)
+
+        if i < len(test_types):
+            print("\n" + "="*50)
+            input("次のテストに進むにはEnterキーを押してください...")
+            print("="*50)

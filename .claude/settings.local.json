@@ -57,7 +57,8 @@
       "Read(//c/Users/tsail/Desktop/スクリーンショット/**)",
       "Bash(git merge:*)",
       "Bash(git tag:*)",
-      "Bash(npx cdk outputs:*)"
+      "Bash(npx cdk outputs:*)",
+      "Bash(python test:*)"
     ],
     "deny": [],
     "ask": []

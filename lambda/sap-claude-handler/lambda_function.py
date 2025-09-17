@@ -78,9 +78,13 @@ def _detect_columns(rows: List[Dict[str, Any]]) -> Dict[str, str]:
         lc = name.lower()
         if ("日" in name) or ("date" in lc):
             colmap.setdefault("date", name)
-        if ("売" in name) or ("金額" in name) or ("amount" in lc) or ("sales" in lc) or ("total" in lc):
+        # 金額系の列を幅広く検出
+        if (("売" in name) or ("金額" in name) or ("amount" in lc) or ("sales" in lc) or ("total" in lc) or
+            ("給与" in name) or ("salary" in lc) or ("在庫金額" in name) or ("roi" in lc) or ("予算" in name)):
             colmap.setdefault("sales", name)
-        if ("商" in name) or ("品" in name) or ("product" in lc) or ("item" in lc) or ("name" in lc):
+        # 名前系の列を幅広く検出
+        if (("商" in name) or ("品" in name) or ("product" in lc) or ("item" in lc) or ("name" in lc) or
+            ("氏名" in name) or ("社員" in name) or ("employee" in lc) or ("キャンペーン" in name) or ("商品コード" in name)):
             colmap.setdefault("product", name)
     return colmap
 
@@ -963,41 +967,22 @@ def lambda_handler(event, context):
     columns = list(sales[0].keys()) if sales else []
     total = len(sales)
 
-    # まずデータタイプを自動判別
-    detected_data_type = _identify_data_type(columns, sales[:5] if sales else [])
-    
-    # 適合性チェック（フロントエンドから分析タイプが指定されている場合）
+    # 分析タイプの決定（ユーザー指定を優先）
     if requested_analysis_type:
-        is_compatible, error_message = validate_analysis_compatibility(detected_data_type, requested_analysis_type)
-        
-        if not is_compatible:
-            # 不適合の場合はエラーレスポンスを返す
-            return response_json(200, {
-                "response": {
-                    "summary_ai": error_message,
-                    "presentation_md": error_message,
-                    "key_insights": [],
-                    "data_analysis": {
-                        "total_records": total,
-                        "detected_type": _get_data_type_name(detected_data_type),
-                        "requested_type": requested_analysis_type
-                    }
-                },
-                "format": fmt,
-                "message": "DATA_TYPE_MISMATCH",
-                "model": MODEL_ID
-            })
-        
-        # 適合している場合は要求された分析タイプを使用
+        # ユーザーが明示的に指定した分析タイプを使用
         type_mapping = {
             'sales': 'sales_data',
-            'hr': 'hr_data', 
+            'hr': 'hr_data',
             'marketing': 'marketing_data',
-            'strategic': detected_data_type  # 統合戦略は実際のデータタイプを使用
+            'inventory': 'inventory_data',
+            'customer': 'customer_data',
+            'financial': 'financial_data',
+            'strategic': 'financial_data'  # 統合戦略は財務分析として扱う
         }
-        data_type = type_mapping.get(requested_analysis_type, detected_data_type)
+        data_type = type_mapping.get(requested_analysis_type, 'financial_data')
     else:
-        # 分析タイプが指定されていない場合は自動判別結果を使用
+        # 分析タイプが指定されていない場合のみ自動判別
+        detected_data_type = _identify_data_type(columns, sales[:5] if sales else [])
         data_type = detected_data_type
     
     stats = _compute_stats(sales)
@@ -1080,28 +1065,68 @@ def lambda_handler(event, context):
             "model": MODEL_ID
         }
     else:
-        # 体系的で読みやすいレポート形式
+        # 汎用的で読みやすいレポート形式（全分析タイプ対応）
 
-        # データ概要を整理
+        # 分析タイプ別のデータ表示設定
+        analysis_icons = {
+            'sales_data': {'icon': '💰', 'name': '売上分析', 'unit': '円', 'metric': '売上'},
+            'hr_data': {'icon': '👥', 'name': '人事分析', 'unit': '円', 'metric': '人件費'},
+            'marketing_data': {'icon': '📢', 'name': 'マーケティング分析', 'unit': '円', 'metric': 'ROI'},
+            'inventory_data': {'icon': '📦', 'name': '在庫分析', 'unit': '個', 'metric': '在庫'},
+            'customer_data': {'icon': '🎯', 'name': '顧客分析', 'unit': '円', 'metric': 'LTV'},
+            'financial_data': {'icon': '📊', 'name': '財務分析', 'unit': '円', 'metric': '損益'}
+        }
+
+        current_analysis = analysis_icons.get(data_type, analysis_icons['financial_data'])
+        analysis_icon = current_analysis['icon']
+        analysis_name = current_analysis['name']
+        unit = current_analysis['unit']
+        metric_name = current_analysis['metric']
+
+        # データ概要を分析タイプに応じて整理
         data_overview = f"""
-📊 データ概要
+{analysis_icon} {analysis_name} - データ概要
 • 分析対象: {total}件のデータ
-• 総売上金額: {int(stats.get('total_sales', 0)):,}円
-• 平均売上: {int(stats.get('avg_row_sales', 0)):,}円/件"""
+• 総{metric_name}: {int(stats.get('total_sales', 0)):,}{unit}
+• 平均{metric_name}: {int(stats.get('avg_row_sales', 0)):,}{unit}/件"""
 
-        # トップ商品を整理
-        top_products_text = ""
+        # 主要項目を分析タイプに応じて整理
+        top_items_text = ""
         if stats.get('top_products'):
-            top_products_text = "\n\n🏆 主要商品・実績:"
-            for i, product in enumerate(stats['top_products'][:5], 1):
-                top_products_text += f"\n  {i}位. {product['name']}: {int(product['sales']):,}円"
+            # 分析タイプ別のラベル設定
+            labels = {
+                'sales_data': '🏆 主要商品・売上実績',
+                'hr_data': '👑 高給与・人件費上位',
+                'marketing_data': '🎯 効果的キャンペーン・ROI上位',
+                'inventory_data': '📈 主要商品・在庫金額',
+                'customer_data': '💎 優良顧客・LTV上位',
+                'financial_data': '💼 主要項目・金額実績'
+            }
 
-        # トレンドデータを整理
+            label = labels.get(data_type, labels['financial_data'])
+            top_items_text = f"\n\n{label}:"
+
+            for i, item in enumerate(stats['top_products'][:5], 1):
+                top_items_text += f"\n  {i}位. {item['name']}: {int(item['sales']):,}{unit}"
+
+        # トレンドデータを分析タイプに応じて整理
         trend_data_text = ""
         if stats.get('timeseries'):
-            trend_data_text = "\n\n📈 売上推移 (直近データ):"
+            # 分析タイプ別のトレンドラベル
+            trend_labels = {
+                'sales_data': '📈 売上推移',
+                'hr_data': '📊 人件費推移',
+                'marketing_data': '📉 ROI推移',
+                'inventory_data': '📦 在庫変動',
+                'customer_data': '👥 顧客価値推移',
+                'financial_data': '💹 財務指標推移'
+            }
+
+            trend_label = trend_labels.get(data_type, trend_labels['financial_data'])
+            trend_data_text = f"\n\n{trend_label} (直近データ):"
+
             for trend_item in stats['timeseries'][:5]:
-                trend_data_text += f"\n  • {trend_item['date']}: {int(trend_item['sales']):,}円"
+                trend_data_text += f"\n  • {trend_item['date']}: {int(trend_item['sales']):,}{unit}"
 
         # アクションプランを整理
         action_plan_text = ""
@@ -1120,10 +1145,10 @@ def lambda_handler(event, context):
         # 全体を結合した読みやすいレポート
         structured_report = f"""{summary_ai}
 
-{data_overview}{top_products_text}{trend_data_text}{insights_text}{action_plan_text}
+{data_overview}{top_items_text}{trend_data_text}{insights_text}{action_plan_text}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 分析完了 | DeepSeek R1 による実践的ビジネス改善提案"""
+📋 {analysis_name}完了 | DeepSeek R1 による実践的ビジネス改善提案"""
 
         body = {
             "response": {
