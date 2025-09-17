@@ -35,6 +35,46 @@ interface AnalysisType {
   tier: 'basic' | 'premium' | 'enterprise'
 }
 
+// 業種タイプ定義
+interface IndustryType {
+  id: string
+  name: string
+  description: string
+  icon: string
+  examples: string[]
+}
+
+const INDUSTRY_TYPES: IndustryType[] = [
+  {
+    id: 'general',
+    name: '汎用分析',
+    description: '業種を問わない一般的な分析',
+    icon: '🏢',
+    examples: ['どの業種にも対応', '基本的な分析手法']
+  },
+  {
+    id: 'retail',
+    name: '小売業',
+    description: '店舗運営・在庫管理・顧客管理に特化',
+    icon: '🛍️',
+    examples: ['コンビニ', 'スーパー', 'アパレル', '家電量販店', 'ドラッグストア']
+  },
+  {
+    id: 'manufacturing',
+    name: '製造業',
+    description: '生産管理・品質管理・原価管理に特化',
+    icon: '🏭',
+    examples: ['自動車', '電子部品', '食品加工', '化学', '機械製造']
+  },
+  {
+    id: 'service',
+    name: 'サービス業',
+    description: '接客品質・顧客満足度・時間効率に特化',
+    icon: '🤝',
+    examples: ['飲食店', '美容院', 'ホテル', 'クリーニング', 'フィットネス']
+  }
+]
+
 const ANALYSIS_TYPES: AnalysisType[] = [
   {
     id: 'sales',
@@ -222,6 +262,7 @@ function App() {
   const [showColumnMapping, setShowColumnMapping] = useState(false)
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({})
   const [selectedAnalysisType, setSelectedAnalysisType] = useState<string>('sales')
+  const [selectedIndustryType, setSelectedIndustryType] = useState<string>('general')
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null)
   const [imageAnalysisResult, setImageAnalysisResult] = useState<string>('')
 
@@ -605,6 +646,7 @@ function App() {
       // Lambda関数に画像データを送信
       const payload = {
         analysisType: selectedAnalysisType,
+        industry: selectedIndustryType,
         fileType: 'image',
         imageData: base64String,
         fileName: file.name,
@@ -1015,7 +1057,8 @@ function App() {
         prompt,
         salesData,              // 画面のデータ配列
         responseFormat: 'json', // 明示（なくてもOKだが安全）
-        analysisType: selectedAnalysisType // 選択された分析タイプを送信
+        analysisType: selectedAnalysisType, // 選択された分析タイプを送信
+        industry: selectedIndustryType // 選択された業種タイプを送信
       };
 
       const { data } = await axios.post(endpoint, body, {
@@ -1198,7 +1241,8 @@ ${dataTable}
 
       const requestDataWithType = {
         ...requestData,
-        analysisType: selectedAnalysisType
+        analysisType: selectedAnalysisType,
+        industry: selectedIndustryType
       }
 
       const result = await axios.post(API_ENDPOINT, requestDataWithType, {
@@ -1576,7 +1620,137 @@ ${dataTable}
             )
           })}
         </div>
-        
+
+        {/* 業種タイプ選択 */}
+        <div style={{
+          marginTop: '40px',
+          padding: '32px',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+          border: '1px solid #e8eef7'
+        }}>
+          <h2 style={{
+            color: '#1a365d',
+            marginBottom: '24px',
+            fontSize: '1.5rem',
+            fontWeight: '600',
+            letterSpacing: '-0.01em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <span style={{
+              backgroundColor: '#fef5e7',
+              padding: '8px',
+              borderRadius: '12px',
+              fontSize: '1.25rem'
+            }}>🏢</span>
+            業種を選択
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '16px'
+          }}>
+            {INDUSTRY_TYPES.map(industry => {
+              const isSelected = selectedIndustryType === industry.id
+
+              return (
+                <div
+                  key={industry.id}
+                  onClick={() => setSelectedIndustryType(industry.id)}
+                  style={{
+                    padding: '20px',
+                    border: `2px solid ${isSelected ? '#ed8936' : '#e2e8f0'}`,
+                    borderRadius: '12px',
+                    backgroundColor: isSelected ? '#fef5e7' : '#ffffff',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    position: 'relative',
+                    boxShadow: isSelected ? '0 8px 25px rgba(237, 137, 54, 0.15)' : '0 2px 8px rgba(0, 0, 0, 0.06)',
+                    transform: isSelected ? 'translateY(-2px)' : 'translateY(0)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.12)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.borderColor = '#cbd5e0';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.06)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{
+                      fontSize: '1.5rem',
+                      marginRight: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '40px',
+                      height: '40px',
+                      backgroundColor: isSelected ? '#ed8936' : '#f7fafc',
+                      borderRadius: '10px',
+                      color: isSelected ? 'white' : 'inherit'
+                    }}>{industry.icon}</span>
+                    <h3 style={{
+                      margin: 0,
+                      color: '#2d3748',
+                      fontSize: '1.1rem',
+                      fontWeight: '600',
+                      lineHeight: '1.4'
+                    }}>
+                      {industry.name}
+                    </h3>
+                  </div>
+                  <p style={{
+                    margin: '0 0 12px 0',
+                    color: '#4a5568',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.5',
+                    fontWeight: '400'
+                  }}>
+                    {industry.description}
+                  </p>
+                  <div style={{
+                    fontSize: '0.8rem',
+                    color: '#718096',
+                    fontStyle: 'italic'
+                  }}>
+                    例: {industry.examples.slice(0, 3).join('、')}
+                  </div>
+                  {isSelected && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      backgroundColor: '#ed8936',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '24px',
+                      height: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      boxShadow: '0 2px 8px rgba(237, 137, 54, 0.3)'
+                    }}>
+                      ✓
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
         {/* 選択された分析タイプの説明 */}
         {selectedAnalysisType && (
           <div style={{
