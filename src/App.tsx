@@ -11,8 +11,8 @@ import { checkSupabaseConfig } from './lib/debug-supabase'
 import { captureError, captureMessage } from './lib/sentry'
 import * as Sentry from '@sentry/react'
 
-// APIエンドポイント設定
-const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || "https://h6util56iwzeyadx6kbjyuakbi0zuucm.lambda-url.us-east-1.on.aws/";
+// APIエンドポイント設定 - 確実にLambda URLを使用
+const API_ENDPOINT = "https://h6util56iwzeyadx6kbjyuakbi0zuucm.lambda-url.us-east-1.on.aws/";
 
 // チャート用の色設定
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
