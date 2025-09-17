@@ -1068,7 +1068,7 @@ def lambda_handler(event, context):
     
     presentation_md = f"""{total}件のデータを分析しました。売上合計は{int(total_sales):,}円で、1件あたり平均{int(avg_sales):,}円でした。主な売上は{trend_text}となっています。"""
 
-    # Response - 技術的な部分を最小化
+    # 読みやすい体系的なレポート形式に整理
     if fmt == "markdown" or fmt == "text":
         # Markdown/Text形式は純粋な日本語のみ
         body = {
@@ -1080,20 +1080,55 @@ def lambda_handler(event, context):
             "model": MODEL_ID
         }
     else:
-        # JSON形式: 自然な説明群 + 区切り線 + データ証拠
-        separator_line = "---以下は読み込んだデータの証拠です---"
+        # 体系的で読みやすいレポート形式
+
+        # データ概要を整理
+        data_overview = f"""
+📊 データ概要
+• 分析対象: {total}件のデータ
+• 総売上金額: {int(stats.get('total_sales', 0)):,}円
+• 平均売上: {int(stats.get('avg_row_sales', 0)):,}円/件"""
+
+        # トップ商品を整理
+        top_products_text = ""
+        if stats.get('top_products'):
+            top_products_text = "\n\n🏆 主要商品・実績:"
+            for i, product in enumerate(stats['top_products'][:5], 1):
+                top_products_text += f"\n  {i}位. {product['name']}: {int(product['sales']):,}円"
+
+        # トレンドデータを整理
+        trend_data_text = ""
+        if stats.get('timeseries'):
+            trend_data_text = "\n\n📈 売上推移 (直近データ):"
+            for trend_item in stats['timeseries'][:5]:
+                trend_data_text += f"\n  • {trend_item['date']}: {int(trend_item['sales']):,}円"
+
+        # アクションプランを整理
+        action_plan_text = ""
+        if 'action_plan' in locals() and action_plan:
+            action_plan_text = "\n\n🚀 実行アクションプラン:"
+            for i, action in enumerate(action_plan, 1):
+                action_plan_text += f"\n  {i}. {action}"
+
+        # 重要な発見を整理
+        insights_text = ""
+        if findings:
+            insights_text = "\n\n💡 重要な発見:"
+            for i, insight in enumerate(findings, 1):
+                insights_text += f"\n  {i}. {insight}"
+
+        # 全体を結合した読みやすいレポート
+        structured_report = f"""{summary_ai}
+
+{data_overview}{top_products_text}{trend_data_text}{insights_text}{action_plan_text}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 分析完了 | DeepSeek R1 による実践的ビジネス改善提案"""
+
         body = {
             "response": {
-                "summary_ai": summary_ai,
-                "presentation_md": presentation_md,
-                "key_insights": findings,
-                "action_plan": action_plan if 'action_plan' in locals() else [],
-                "separator": separator_line,
-                "data_analysis": {
-                    "total_records": total,
-                    "kpis": kpis,
-                    "trend": trend
-                }
+                "summary_ai": structured_report,
+                "presentation_md": presentation_md
             },
             "format": fmt,
             "message": "OK",
